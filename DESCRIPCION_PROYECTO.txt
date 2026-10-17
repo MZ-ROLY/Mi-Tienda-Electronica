@@ -1,0 +1,96 @@
+VALVE STORE - DESCRIPCION DEL PROYECTO
+======================================
+
+RESUMEN
+-------
+Valve Store es un proyecto de tienda electronica de demostracion. Incluye
+una aplicacion web con inicio de sesion, un chat de asistencia para consultar
+productos y un bot de Telegram con comandos para mostrar el catalogo.
+
+FUNCIONES PRINCIPALES
+---------------------
+- Registro e inicio de sesion mediante Firebase Authentication.
+- Verificacion de la sesion del usuario en el servidor Flask.
+- Chat web en tiempo real mediante Flask-SocketIO.
+- Asistente de texto conectado con Gemini, cuando GEMINI_API_KEY esta
+  configurada.
+- Respuestas locales para consultas del catalogo y botones para ver detalles
+  de laptops, teclados y monitores.
+- Tema claro/oscuro en la pagina del chat.
+- Bot de Telegram con comandos de ayuda, catalogo, productos, comprobante PDF
+  de demostracion y audio.
+
+TECNOLOGIAS
+-----------
+- Python y Flask para el servidor web.
+- Flask-SocketIO para la comunicacion en tiempo real.
+- Firebase Authentication para el acceso de usuarios.
+- Google Gemini para las respuestas del asistente.
+- HTML, CSS y JavaScript para las paginas web.
+- python-telegram-bot para el bot de Telegram.
+
+ARCHIVOS Y CARPETAS PRINCIPALES
+-------------------------------
+- app.py: servidor Flask, autenticacion, chat, catalogo y endpoints.
+- Telegram.py: bot de Telegram y sus comandos.
+- login.html: interfaz de registro e inicio de sesion.
+- chat.html: interfaz del chat y detalles de productos.
+- catalogo_tienda.json: datos de productos y comandos del bot.
+- image/: imagenes usadas por la tienda.
+- audio/: audios usados por el bot de Telegram.
+- animacion/: animacion del asistente del chat.
+- pdfs/: documento PDF de demostracion enviado por el bot.
+- requirements.txt: dependencias de Python.
+
+EJECUCION LOCAL EN WINDOWS
+--------------------------
+1. Abre PowerShell en la carpeta del proyecto.
+2. Crea y activa un entorno virtual si aun no existe:
+
+   py -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+
+3. Instala las dependencias:
+
+   python -m pip install -r requirements.txt
+
+4. Configura las variables necesarias en un archivo local llamado .env.
+   Nunca publiques ese archivo ni compartas sus valores secretos.
+5. Inicia la aplicacion web:
+
+   python app.py
+
+6. Para iniciar el bot de Telegram, abre otra terminal y ejecuta:
+
+   python Telegram.py
+
+   El bot necesita que la variable TELEGRAM tenga un token valido.
+
+CONFIGURACION
+-------------
+La aplicacion web requiere las variables Firebase y Flask indicadas por
+app.py. GEMINI_API_KEY es necesaria para que el asistente responda consultas
+que no se resuelven localmente. TELEGRAM es necesaria para ejecutar el bot.
+Los valores deben configurarse localmente en .env o como variables de entorno
+del servicio de despliegue; no se incluyen en este documento.
+
+LIMITES IMPORTANTES
+-------------------
+- Los precios del catalogo son demostrativos y no se deben presentar como
+  precios vigentes sin confirmacion de la tienda.
+- El bot no procesa pagos bancarios reales. El flujo de pago es una
+  simulacion y no confirma una compra.
+- El PDF enviado por el bot es demostrativo y no acredita un pago real.
+- No se han configurado politicas verificadas de envio, garantia o devolucion.
+- La disponibilidad de Gemini depende de la configuracion y cuota del servicio.
+
+DESPLIEGUE
+----------
+La aplicacion web esta preparada para usar la variable PORT del servicio de
+despliegue y escuchar en 0.0.0.0. En Render, el comando de inicio utilizado
+es:
+
+   gunicorn --worker-class gthread --threads 100 --bind 0.0.0.0:$PORT app:app
+
+Las variables privadas deben configurarse en el panel del servicio y no
+subirse al repositorio.
