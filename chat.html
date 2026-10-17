@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valve Store · Asistente</title>
+  <style>
+    *{box-sizing:border-box}
+    :root{color-scheme:dark;--bg:#000;--panel:#050505;--panel-raised:#0a0a0a;--text:#f5f5f5;--muted:#a6a6a6;--line:#242424}
+    html[data-theme="light"]{color-scheme:light;--bg:#f1f3f5;--panel:#fff;--panel-raised:#f5f6f7;--text:#111827;--muted:#4b5563;--line:#d9dde2}
+    html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    body{min-height:100vh}
+    .chat-page{min-height:100vh;display:grid;place-items:center;padding:28px 18px}
+    .chat-page[hidden]{display:none}
+    .auth-loading{min-height:100vh;display:grid;place-items:center;padding:24px;color:var(--muted);text-align:center}
+    .auth-loading[hidden]{display:none}
+    .chat-window{width:min(100%,900px);height:min(820px,calc(100vh - 56px));height:min(820px,calc(100dvh - 56px));min-height:min(540px,calc(100dvh - 56px));display:flex;flex-direction:column;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:0 0 28px #ffffff08,0 28px 80px #000}
+    .chat-header{display:flex;align-items:center;gap:14px;padding:18px 22px;border-bottom:1px solid #ffffff12;background:#000}
+    .user-profile{display:flex;min-width:0;align-items:center;gap:12px}
+    .user-photo{width:46px;height:46px;flex:none;border:0;border-radius:0;object-fit:cover}
+    .user-details{min-width:0}
+    .user-name{overflow:hidden;margin:0 0 4px;color:var(--text);font-size:14px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+    .user-email{overflow:hidden;margin:0;color:var(--muted);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+    .header-actions{margin-left:auto;display:flex;align-items:center;gap:10px}
+    .theme-toggle{width:40px;height:40px;display:grid;place-items:center;border:1px solid #454545;border-radius:11px;background:var(--panel-raised);color:#f5f5f5;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease}
+    .theme-toggle:hover{border-color:#ddd;background:#111;box-shadow:0 0 14px #ffffff20}
+    .theme-toggle:focus-visible{outline:2px solid #fff;outline-offset:3px}
+    .theme-toggle svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8}
+    .theme-toggle .sun-icon{display:block}
+    .theme-toggle .moon-icon{display:none}
+    .logout{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:1px solid #454545;border-radius:11px;background:#050505;color:var(--text);font:inherit;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease}
+    .logout:hover{border-color:#ddd;background:#111;box-shadow:0 0 14px #ffffff20}
+    .logout:focus-visible{outline:2px solid #fff;outline-offset:3px}
+    .messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:22px;padding:28px clamp(16px,5vw,48px)}
+    .empty-state{flex:1;min-height:300px;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
+    .empty-state[hidden]{display:none}
+    .robot{width:190px;height:190px;margin-bottom:10px;display:flex;align-items:center;justify-content:center}
+    .robot svg{display:block;margin:auto;transform:translateX(22px) scale(.9)!important;transform-origin:center}
+    .empty-state h2{margin:0 0 9px;font-family:"Lucida Bright",serif;font-size:clamp(21px,3vw,27px);text-shadow:0 0 20px #dce6f230}
+    .empty-state p{max-width:430px;margin:0;color:var(--muted);font-size:14px;font-weight:500;line-height:1.7}
+    .message{display:flex;align-items:flex-end;gap:10px;max-width:min(82%,620px)}
+    .message-user{align-self:flex-end;justify-content:flex-end}
+    .message-assistant{align-self:flex-start}
+    .message-assistant.message-has-products{width:min(100%,700px);max-width:100%;display:block}
+    .bubble{padding:13px 17px;border:1px solid #303030;border-radius:20px 20px 20px 5px;background:var(--panel-raised);color:var(--text);font-family:"Times New Roman",Times,serif;font-size:14px;line-height:1.65;overflow-wrap:anywhere}
+    .message-user .bubble{border-color:#3b3b3b;border-radius:20px 20px 5px 20px;background:linear-gradient(145deg,#202020,#151515);color:#f5f5f5;box-shadow:0 5px 18px #0005}
+    .bubble code{padding:1px 4px;border-radius:4px;background:#ffffff12;font-family:Consolas,monospace;font-size:.9em}
+    .product-options{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+    .product-option{min-width:0;padding:10px 16px;border:1px solid var(--line);border-radius:999px;background:var(--panel-raised);color:var(--text);font-family:inherit;font-size:12px;font-weight:600;line-height:1.35;text-align:center;cursor:pointer;transition:border-color .2s ease,transform .2s ease}
+    .product-option:hover{transform:translateY(-2px);border-color:#888}
+    .product-option:focus-visible{outline:2px solid var(--text);outline-offset:3px}
+    .product-option:disabled{cursor:wait;opacity:.65}
+    .product-detail{width:min(100%,520px);overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--panel-raised)}
+    .product-detail img{display:block;width:100%;max-height:250px;object-fit:contain;background:#111}
+    .product-detail-info{padding:16px}
+    .product-detail-info h3{margin:0 0 12px;font-size:16px;line-height:1.45}
+    .product-detail-info ul{margin:0;padding-left:20px;color:var(--text);font-size:13px;line-height:1.8}
+    .product-detail-price{margin:14px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+    .connection-status{margin:4px 0 0;color:var(--muted);font-size:11px}
+    .connection-status[data-state="connected"]{color:#70d99a}
+    .connection-status[data-state="error"]{color:#ff8f8f}
+    .composer-wrap{padding:14px clamp(14px,4vw,36px) 18px;border-top:1px solid #ffffff12;background:#000}
+    .composer{display:flex;align-items:flex-end;gap:10px;padding:8px 9px 8px 16px;border:1px solid #404040;border-radius:18px;background:var(--panel-raised);box-shadow:0 0 16px #ffffff08}
+    .composer:focus-within{border-color:#aaa;box-shadow:0 0 0 3px #ffffff10,0 0 18px #ffffff10}
+    .composer textarea{flex:1;min-height:42px;max-height:140px;resize:none;padding:11px 0;border:0;outline:0;background:transparent;color:var(--text);font-family:"Times New Roman",Times,serif;font-size:14px;line-height:1.45}
+    .composer textarea::placeholder{color:#9aa4b0}
+    .send{width:42px;height:42px;flex:none;display:grid;place-items:center;border:1px solid #d8d8d8;border-radius:13px;background:#dedede;color:#050505;cursor:pointer;box-shadow:0 0 14px #ffffff30;transition:transform .2s ease,box-shadow .2s ease}
+    .send:disabled{cursor:not-allowed;opacity:.5;transform:none;box-shadow:none}
+    .send svg{width:19px;height:19px;fill:currentColor}
+    .send:hover{transform:translateY(-2px);box-shadow:0 0 22px #dce6f280}
+    .send:focus-visible{outline:2px solid #fff;outline-offset:3px}
+    html[data-theme="light"] .chat-header,html[data-theme="light"] .composer-wrap{border-color:#00000012}
+    html[data-theme="light"] .chat-header{background:var(--panel-raised)}
+    html[data-theme="light"] .composer-wrap{background:var(--panel-raised)}
+    html[data-theme="light"] .chat-window{box-shadow:0 0 28px #0000000a,0 28px 80px #00000020}
+    html[data-theme="light"] .theme-toggle{border-color:#d0d4d9;background:#fff;color:#17191c}
+    html[data-theme="light"] .theme-toggle:hover{border-color:#9299a1;background:#f2f3f5;box-shadow:0 0 14px #00000018}
+    html[data-theme="light"] .theme-toggle .sun-icon{display:none}
+    html[data-theme="light"] .theme-toggle .moon-icon{display:block}
+    html[data-theme="light"] .logout{border-color:#d0d4d9;background:#fff}
+    html[data-theme="light"] .logout:hover{border-color:#9299a1;background:#f2f3f5;box-shadow:0 0 14px #00000018}
+    html[data-theme="light"] .logout:focus-visible,html[data-theme="light"] .theme-toggle:focus-visible{outline-color:#20242a}
+    html[data-theme="light"] .bubble{border-color:#dfe2e6;color:#111827}
+    html[data-theme="light"] .message-user .bubble{border-color:#d1d5db;background:linear-gradient(145deg,#f3f4f6,#e5e7eb);color:#111827;box-shadow:0 5px 16px #00000010}
+    html[data-theme="light"] .composer{border-color:#cbd0d6;box-shadow:0 0 16px #0000000a}
+    html[data-theme="light"] .composer:focus-within{border-color:#777;box-shadow:0 0 0 3px #0000000a,0 0 18px #0000000a}
+    html[data-theme="light"] .composer textarea{color:#111827}
+    html[data-theme="light"] .composer textarea::placeholder{color:#4b5563;opacity:1}
+    html[data-theme="light"] .send{border-color:#25292e;background:#25292e;color:#fff;box-shadow:0 0 14px #00000018}
+    @media(max-width:600px){.chat-page{min-height:100vh;min-height:100dvh;padding:0}.chat-window{height:100vh;height:100dvh;min-height:0;border:0;border-radius:0}.chat-header{gap:9px;padding:13px 12px}.user-profile{gap:8px}.user-photo{width:40px;height:40px}.user-name{font-size:12px}.user-email{font-size:10px}.header-actions{gap:6px}.theme-toggle{width:36px;height:36px}.logout{gap:5px;padding:9px 10px;font-size:11px}.messages{gap:18px;padding:22px 14px}.empty-state{min-height:260px}.robot{width:160px;height:160px}.robot svg{transform:translateX(18px) scale(.85)!important}.message{max-width:92%}.bubble{padding:11px 14px;font-size:13px}.composer-wrap{padding:12px 12px max(12px,env(safe-area-inset-bottom))}.composer{gap:8px;padding-left:12px}}
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+</head>
+<body>
+  <div class="auth-loading" id="auth-loading" role="status">Verificando tu sesión…</div>
+  <main class="chat-page" id="chat-page" hidden>
+    <section class="chat-window" aria-label="Chat de Valve Store">
+      <header class="chat-header">
+        <div class="user-profile">
+          <img class="user-photo" src="image/user.webp" alt="Foto de perfil">
+          <div class="user-details">
+            <p class="user-name" id="user-name">Usuario</p>
+            <p class="user-email" id="user-email">Sin correo</p>
+            <p class="connection-status" id="connection-status" role="status" aria-live="polite">Conectando…</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Activar modo claro" title="Activar modo claro">
+            <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path></svg>
+            <svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"></path></svg>
+          </button>
+          <a class="logout" href="/" aria-label="Cerrar sesión y volver al login">
+            <span>Cerrar sesión</span>
+          </a>
+        </div>
+      </header>
+
+      <div class="messages" id="messages" role="log" aria-live="polite" aria-relevant="additions">
+        <section class="empty-state" id="empty-state">
+          <div id="robot" class="robot" role="img" aria-label="Robot asistente"></div>
+          <h2>¿Qué estás buscando?</h2>
+          <p>Escribe tu consulta sobre ordenadores, laptops, tarjetas de video o accesorios para comenzar.</p>
+        </section>
+      </div>
+
+      <div class="composer-wrap">
+        <form class="composer" id="chat-form">
+          <textarea id="message-input" rows="1" maxlength="1000" placeholder="Escribe tu mensaje..." aria-label="Escribe tu mensaje" required></textarea>
+          <button class="send" type="submit" aria-label="Enviar mensaje" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.2 11.4 21 3.3c.7-.3 1.4.4 1.1 1.1L14 23.2c-.3.7-1.3.7-1.6 0l-2.5-6.1 6.3-6.3-8 4.7-6-2.5c-.8-.3-.8-1.3 0-1.6Z"/></svg>
+          </button>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script>
+    const socketScript = document.createElement('script');
+    socketScript.src = 'https://cdn.socket.io/4.8.1/socket.io.min.js';
+    socketScript.onload = () => window.dispatchEvent(new Event('socketio-ready'));
+    socketScript.onerror = () => {
+      const status = document.getElementById('connection-status');
+      if (status) {
+        status.dataset.state = 'error';
+        status.textContent = 'No se pudo cargar la conexión en tiempo real.';
+      }
+    };
+    document.head.append(socketScript);
+
+    const messages = document.getElementById('messages');
+    const emptyState = document.getElementById('empty-state');
+    const messageForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = messageForm.querySelector('.send');
+    const connectionStatus = document.getElementById('connection-status');
+    let socket = null;
+    const themeToggle = document.getElementById('theme-toggle');
+    let savedTheme = null;
+    try {
+      savedTheme = localStorage.getItem('valveStoreTheme');
+    } catch (error) {
+      console.error('No se pudo cargar la preferencia de tema.', error);
+    }
+    const initialTheme = savedTheme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = initialTheme;
+    themeToggle.setAttribute('aria-label', `Activar modo ${initialTheme === 'dark' ? 'claro' : 'oscuro'}`);
+    themeToggle.title = `Activar modo ${initialTheme === 'dark' ? 'claro' : 'oscuro'}`;
+
+    themeToggle.addEventListener('click', () => {
+      const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = theme;
+      const nextMode = theme === 'dark' ? 'claro' : 'oscuro';
+      themeToggle.setAttribute('aria-label', `Activar modo ${nextMode}`);
+      themeToggle.title = `Activar modo ${nextMode}`;
+      try {
+        localStorage.setItem('valveStoreTheme', theme);
+      } catch (error) {
+        console.error('No se pudo guardar la preferencia de tema.', error);
+      }
+    });
+
+    function addMessage(text, sender = 'user', products = []) {
+      const message = document.createElement('article');
+      message.className = `message message-${sender}`;
+      if (products.length) message.classList.add('message-has-products');
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      appendFormattedText(bubble, text);
+
+      message.append(bubble);
+      if (products.length) {
+        const options = document.createElement('div');
+        options.className = 'product-options';
+        options.setAttribute('aria-label', 'Productos del catálogo');
+
+        products.forEach((product) => {
+          const button = document.createElement('button');
+          button.className = 'product-option';
+          button.type = 'button';
+          button.setAttribute('aria-label', `Ver detalles de ${product.name}`);
+
+          const name = document.createElement('span');
+          name.textContent = product.option_label || product.name;
+
+          button.title = `Mostrar ${product.name}`;
+          button.append(name);
+          button.addEventListener('click', () => {
+            if (!socket || !socket.connected) return;
+            options.querySelectorAll('.product-option').forEach((option) => {
+              option.disabled = true;
+            });
+            button.disabled = true;
+            socket.emit('product_details', { product_id: product.id });
+          });
+          options.append(button);
+        });
+
+        message.append(options);
+      }
+      messages.append(message);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function addProductMessage(product) {
+      const message = document.createElement('article');
+      message.className = 'message message-assistant';
+
+      const card = document.createElement('section');
+      card.className = 'product-detail';
+      card.setAttribute('aria-label', `Producto seleccionado: ${product.name}`);
+
+      const image = document.createElement('img');
+      image.src = product.image;
+      image.alt = product.name;
+
+      const info = document.createElement('div');
+      info.className = 'product-detail-info';
+      const name = document.createElement('h3');
+      name.textContent = product.name;
+      info.append(name);
+
+      if (Array.isArray(product.features) && product.features.length) {
+        const features = document.createElement('ul');
+        product.features.forEach((feature) => {
+          const item = document.createElement('li');
+          item.textContent = feature;
+          features.append(item);
+        });
+        info.append(features);
+      }
+
+      if (product.demo_price && product.price_status) {
+        const price = document.createElement('p');
+        price.className = 'product-detail-price';
+        price.textContent = `${product.demo_price} · ${product.price_status}`;
+        info.append(price);
+      }
+
+      card.append(image, info);
+      message.append(card);
+      messages.append(message);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function appendFormattedText(container, text) {
+      const lines = text.split(/\r?\n/);
+      const inlinePattern = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`)/g;
+
+      lines.forEach((line, lineIndex) => {
+        if (lineIndex > 0) container.append(document.createElement('br'));
+
+        const bullet = line.match(/^\s*[-*]\s+(.+)$/);
+        const content = bullet ? `• ${bullet[1]}` : line;
+        let cursor = 0;
+
+        for (const match of content.matchAll(inlinePattern)) {
+          const token = match[0];
+          const start = match.index;
+          container.append(document.createTextNode(content.slice(cursor, start)));
+
+          let element;
+          let innerText;
+          if (token.startsWith('**')) {
+            element = document.createElement('strong');
+            innerText = token.slice(2, -2);
+          } else if (token.startsWith('`')) {
+            element = document.createElement('code');
+            innerText = token.slice(1, -1);
+          } else {
+            element = document.createElement('em');
+            innerText = token.slice(1, -1);
+          }
+          element.textContent = innerText;
+          container.append(element);
+          cursor = start + token.length;
+        }
+
+        container.append(document.createTextNode(content.slice(cursor)));
+      });
+    }
+
+    messageInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        messageForm.requestSubmit();
+      }
+    });
+
+    window.addEventListener('socketio-ready', () => {
+      if (typeof window.io !== 'function') {
+        connectionStatus.dataset.state = 'error';
+        connectionStatus.textContent = 'No se pudo iniciar la conexión en tiempo real.';
+        return;
+      }
+
+      socket = window.io({ transports: ['websocket', 'polling'] });
+
+      socket.on('connect', () => {
+        connectionStatus.dataset.state = 'connected';
+        connectionStatus.textContent = 'Conectado';
+        sendButton.disabled = false;
+      });
+
+      socket.on('disconnect', () => {
+        connectionStatus.dataset.state = 'error';
+        connectionStatus.textContent = 'Conexión perdida; intentando reconectar…';
+        sendButton.disabled = true;
+      });
+
+      socket.on('connect_error', () => {
+        connectionStatus.dataset.state = 'error';
+        connectionStatus.textContent = 'No se pudo conectar. Revisa el servidor e inténtalo de nuevo.';
+        sendButton.disabled = true;
+      });
+
+      socket.on('session_expired', () => {
+        socket.disconnect();
+        window.location.replace('/');
+      });
+
+      socket.on('chat_message_received', ({ text }) => {
+        emptyState.hidden = true;
+        addMessage(text, 'user');
+      });
+
+      socket.on('chat_response', ({ text, products = [] }) => {
+        emptyState.hidden = true;
+        messages.querySelectorAll('.product-option:disabled').forEach((button) => {
+          button.disabled = false;
+        });
+        addMessage(text, 'assistant', products);
+      });
+
+      socket.on('product_selected', (product) => {
+        emptyState.hidden = true;
+        messages.querySelectorAll('.product-option:disabled').forEach((button) => {
+          button.disabled = false;
+        });
+        addProductMessage(product);
+      });
+
+      socket.on('chat_error', ({ message }) => {
+        emptyState.hidden = true;
+        messages.querySelectorAll('.product-option:disabled').forEach((button) => {
+          button.disabled = false;
+        });
+        addMessage(message, 'assistant');
+      });
+
+    });
+
+    messageForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const text = messageInput.value.trim();
+      if (!text || !socket || !socket.connected) return;
+
+      socket.emit('chat_message', { text });
+      messageInput.value = '';
+      messageInput.focus();
+    });
+
+    if (window.lottie) {
+      lottie.loadAnimation({
+        container: document.getElementById('robot'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: 'animacion/robot-hello.json'
+      });
+    }
+  </script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
+
+    const firebaseConfig = {{ firebase_config | tojson }};
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const chatPage = document.getElementById('chat-page');
+    const authLoading = document.getElementById('auth-loading');
+    const logoutLink = document.querySelector('.logout');
+
+    async function establishServerSession(user) {
+      const response = await fetch('/session', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${await user.getIdToken()}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin',
+        body: '{}'
+      });
+      if (!response.ok) {
+        throw new Error('El servidor no pudo verificar tu sesión.');
+      }
+    }
+
+    async function clearServerSession() {
+      const response = await fetch('/logout', {
+        method: 'POST',
+        credentials: 'same-origin'
+      });
+      if (!response.ok) {
+        throw new Error('El servidor no pudo cerrar tu sesión.');
+      }
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        try {
+          await clearServerSession();
+        } catch (error) {
+          console.error('No se pudo limpiar la sesión del servidor:', error.message);
+        }
+        window.location.replace('/');
+        return;
+      }
+
+      try {
+        await establishServerSession(user);
+        document.getElementById('user-name').textContent = user.displayName || 'Usuario';
+        document.getElementById('user-email').textContent = user.email || '';
+        authLoading.hidden = true;
+        chatPage.hidden = false;
+      } catch (error) {
+        console.error('No se pudo verificar la sesión:', error.message);
+        await signOut(auth);
+        window.location.replace('/');
+      }
+    });
+
+    logoutLink.addEventListener('click', async (event) => {
+      event.preventDefault();
+      logoutLink.setAttribute('aria-busy', 'true');
+      try {
+        await clearServerSession();
+        await signOut(auth);
+        window.location.replace('/');
+      } catch (error) {
+        console.error('No se pudo cerrar la sesión:', error.message);
+        logoutLink.removeAttribute('aria-busy');
+        window.alert('No se pudo cerrar la sesión. Comprueba tu conexión e inténtalo de nuevo.');
+      }
+    });
+  </script>
+</body>
+</html>

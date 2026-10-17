@@ -1,0 +1,85 @@
+{
+  "store_name": "Valve Store",
+  "products": [
+    {
+      "id": "laptop_tuf",
+      "name": "Laptop TUF Gaming 16″ Ryzen 5, 16 GB RAM, 512 GB",
+      "option_label": "Laptops",
+      "telegram_command": "/laptop_tuf",
+      "image": "image/lap2.jpg",
+      "keywords": ["laptop tuf gaming", "laptop tuf"],
+      "features": ["Pantalla de 16″", "Procesador Ryzen 5", "16 GB de RAM", "Almacenamiento de 512 GB"],
+      "demo_price": "Bs 4.500",
+      "price_status": "Precio de demostración; no confirmar como precio vigente."
+    },
+    {
+      "id": "teclado_streamer",
+      "name": "Teclado RGB con teclas multimedia y pantalla",
+      "option_label": "Teclados",
+      "telegram_command": "/teclado_streamer",
+      "image": "image/tec2.jpg",
+      "keywords": ["teclado rgb", "teclado con pantalla", "teclado streamer"],
+      "features": ["Iluminación RGB", "Teclas multimedia", "Pantalla integrada"],
+      "demo_price": "Bs 950",
+      "price_status": "Precio de demostración; no confirmar como precio vigente."
+    },
+    {
+      "id": "monitor_rog",
+      "name": "Monitor ASUS ROG OLED 26,5″ 240 Hz",
+      "option_label": "Monitores",
+      "telegram_command": "/monitor_rog",
+      "image": "image/mon2.jpg",
+      "keywords": ["monitor asus rog", "monitor rog"],
+      "features": ["Panel OLED", "Tamaño de 26,5″", "Frecuencia de 240 Hz"],
+      "demo_price": "Bs 6.500",
+      "price_status": "Precio de demostración; no confirmar como precio vigente."
+    }
+  ],
+  "telegram_commands": [
+    {
+      "command": "/start",
+      "description": "Inicia el bot y muestra el saludo."
+    },
+    {
+      "command": "/ayuda",
+      "description": "Muestra la lista de comandos disponibles."
+    },
+    {
+      "command": "/catalogo",
+      "description": "Muestra el catálogo del bot de Telegram."
+    },
+    {
+      "command": "/laptop_tuf",
+      "description": "Muestra la laptop TUF Gaming."
+    },
+    {
+      "command": "/teclado_streamer",
+      "description": "Muestra el teclado RGB."
+    },
+    {
+      "command": "/monitor_rog",
+      "description": "Muestra el monitor ASUS ROG."
+    },
+    {
+      "command": "/comprar",
+      "description": "Indica que se use el comando /procesarpago."
+    },
+    {
+      "command": "/procesarpago",
+      "description": "Flujo de demostración; no procesa un pago bancario real."
+    },
+    {
+      "command": "/comprobante",
+      "description": "Envía el archivo PDF de factura del bot."
+    },
+    {
+      "command": "/gracias",
+      "description": "Envía un audio de agradecimiento relacionado con el producto."
+    }
+  ],
+  "known_limits": [
+    "Los precios actuales y la disponibilidad no están confirmados; los precios del código de Telegram son demos.",
+    "No se han proporcionado políticas reales de envío, pago, garantía o devolución.",
+    "El flujo de pago de Telegram es una simulación y no debe describirse como una compra completada."
+  ]
+}

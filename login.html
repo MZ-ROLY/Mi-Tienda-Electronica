@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap">
+    <title>Iniciar sesión | Valve Store</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --background: #020304;
+            --surface: #070809;
+            --surface-raised: #101215;
+            --text: #f7f8fa;
+            --muted: #a9afb8;
+            --neon: #ffffff;
+            --neon-gray: #aeb5bf;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 20px;
+            color: var(--text);
+            background:
+                radial-gradient(ellipse at 15% 15%, #ffffff14 0, transparent 38%),
+                radial-gradient(ellipse at 85% 85%, #aeb5bf12 0, transparent 40%),
+                var(--background);
+        }
+
+        .container {
+            position: relative;
+            overflow: hidden;
+            width: 768px;
+            max-width: 100%;
+            min-height: 480px;
+            background-color: var(--surface);
+            border: 1px solid #838b96;
+            border-radius: 24px;
+            box-shadow: 0 0 10px #ffffff20, 0 0 34px #c5ccd51a, 0 24px 70px #000c;
+        }
+
+        .container h1 {
+            text-shadow: 0 0 12px #ffffff30;
+        }
+
+        .container p {
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 20px;
+            letter-spacing: 0.3px;
+        }
+
+        .container span {
+            color: var(--muted);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .auth-message {
+            max-width: 100%;
+            margin-top: 12px;
+            color: #ffb4b4;
+            font-size: 12px;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .auth-message[hidden] {
+            display: none;
+        }
+
+        .container button {
+            margin-top: 10px;
+            padding: 10px 45px;
+            color: #061018;
+            background: linear-gradient(110deg, var(--neon), var(--neon-gray));
+            border: 1px solid var(--neon);
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 0 10px #ffffff40, 0 0 24px #dce6f22b;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .container button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 14px #ffffff70, 0 0 32px #dce6f250;
+        }
+
+        .container button:focus-visible {
+            outline: 2px solid var(--neon);
+            outline-offset: 4px;
+            box-shadow: 0 0 14px #ffffff70, 0 0 32px #dce6f250;
+        }
+
+        .container button.hidden {
+            background: transparent;
+            color: var(--neon);
+            border-color: var(--neon);
+            box-shadow: 0 0 8px #ffffff25, inset 0 0 12px #ffffff08;
+        }
+
+        .container form {
+            display: flex;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 0 40px;
+            background-color: var(--surface);
+        }
+
+        .container input {
+            width: 100%;
+            margin: 8px 0;
+            padding: 10px 15px;
+            color: var(--text);
+            background-color: var(--surface-raised);
+            border: 1px solid #3d434c;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .container input::placeholder { color: #9da4ae; }
+
+        .container input:focus {
+            border-color: #f7f8fa;
+            background-color: #14171b;
+            box-shadow: 0 0 0 2px #ffffff12, 0 0 12px #ffffff30;
+        }
+
+        .form-container {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
+        }
+
+        .sign-in {
+            z-index: 2;
+            left: 0;
+            width: 50%;
+        }
+
+        .container.active .sign-in { transform: translateX(100%); }
+
+        .sign-up {
+            z-index: 1;
+            left: 0;
+            width: 50%;
+            opacity: 0;
+        }
+
+        .container.active .sign-up {
+            z-index: 5;
+            transform: translateX(100%);
+            opacity: 1;
+            animation: move 0.6s;
+        }
+
+        @keyframes move {
+            0%, 49.99% { z-index: 1; opacity: 0; }
+            50%, 100% { z-index: 5; opacity: 1; }
+        }
+
+        .toggle-container {
+            position: absolute;
+            z-index: 1000;
+            top: 0;
+            left: 50%;
+            overflow: hidden;
+            width: 50%;
+            height: 100%;
+            border-radius: 120px 0 0 90px;
+            border-left: 1px solid #ffffff45;
+            box-shadow: -8px 0 30px #ffffff0d;
+            transition: transform 0.6s ease-in-out, border-radius 0.6s ease-in-out, box-shadow 0.6s ease-in-out;
+        }
+
+        .container.active .toggle-container {
+            transform: translateX(-100%);
+            border-radius: 0 150px 100px 0;
+        }
+
+        .toggle {
+            position: relative;
+            left: -100%;
+            width: 200%;
+            height: 100%;
+            color: var(--text);
+            background:
+                radial-gradient(ellipse at 60% 35%, #ffffff20, transparent 48%),
+                linear-gradient(115deg, #555b64, #30343b 48%, #111317);
+            transform: translateX(0);
+            transition: transform 0.6s ease-in-out;
+        }
+
+        .container.active .toggle { transform: translateX(50%); }
+
+        .toggle-panel {
+            position: absolute;
+            top: 0;
+            display: flex;
+            width: 50%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 0 30px;
+            text-align: center;
+            transform: translateX(0);
+            transition: transform 0.6s ease-in-out;
+        }
+
+        .toggle-left { transform: translateX(-200%); }
+        .container.active .toggle-left { transform: translateX(0); }
+        .toggle-right { right: 0; }
+        .container.active .toggle-right { transform: translateX(200%); }
+
+        @media (max-width: 700px) {
+            body {
+                padding: 16px;
+            }
+
+            .container {
+                width: min(100%, 460px);
+                height: min(620px, calc(100dvh - 32px));
+                min-height: min(560px, calc(100dvh - 32px));
+                border-radius: 22px;
+            }
+
+            .form-container {
+                width: 100%;
+                height: 74%;
+            }
+
+            .sign-in,
+            .sign-up {
+                width: 100%;
+            }
+
+            .container.active .sign-in {
+                transform: translateX(-100%);
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .container.active .sign-up {
+                transform: translateX(0);
+                animation: none;
+            }
+
+            .toggle-container,
+            .container.active .toggle-container {
+                top: auto;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 26%;
+                transform: none;
+                border: 0;
+                border-top: 1px solid #ffffff45;
+                border-radius: 30px 30px 0 0;
+                box-shadow: 0 -8px 30px #ffffff0d;
+            }
+
+            .container form {
+                padding: 0 24px;
+            }
+
+            .container button {
+                padding: 10px 24px;
+            }
+
+            .auth-message {
+                font-size: 11px;
+            }
+
+            .toggle-panel {
+                padding: 0 18px;
+            }
+
+            .toggle-panel h1 {
+                font-size: clamp(20px, 5vw, 26px);
+            }
+
+            .toggle-panel p {
+                margin: 12px 0;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .container form {
+                padding: 0 18px;
+            }
+
+            .container button {
+                padding: 10px 18px;
+            }
+
+            .toggle-panel {
+                padding: 0 12px;
+            }
+        }
+
+        @media (max-width: 700px) and (max-height: 560px) {
+            body {
+                align-items: flex-start;
+            }
+
+            .container {
+                height: 560px;
+                min-height: 560px;
+            }
+
+            .form-container {
+                height: 74%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container" id="container">
+        <div class="form-container sign-up">
+            <form>
+                <h1>Crear cuenta</h1>
+                <span>Regístrate con tu correo electrónico</span>
+                <input type="text" name="name" placeholder="Nombre" aria-label="Nombre" autocomplete="name" required>
+                <input type="email" name="email" placeholder="Correo electrónico" aria-label="Correo electrónico" autocomplete="email" required>
+                <input type="password" name="password" placeholder="Contraseña" aria-label="Contraseña" autocomplete="new-password" required>
+                <button type="submit">Registrarse</button>
+                <p class="auth-message" id="register-message" role="status" aria-live="polite" hidden></p>
+            </form>
+        </div>
+        <div class="form-container sign-in">
+            <form>
+                <h1>Iniciar sesión</h1>
+                <span>Inicia sesión con tu correo electrónico</span>
+                <input type="email" name="email" placeholder="Correo electrónico" aria-label="Correo electrónico" autocomplete="email" required>
+                <input type="password" name="password" placeholder="Contraseña" aria-label="Contraseña" autocomplete="current-password" required>
+                <button type="submit">Iniciar sesión</button>
+                <p class="auth-message" id="login-message" role="status" aria-live="polite" hidden></p>
+            </form>
+        </div>
+        <div class="toggle-container">
+            <div class="toggle">
+                <div class="toggle-panel toggle-left">
+                    <h1>¡Qué bueno verte!</h1>
+                    <p>Inicia sesión con tus datos para acceder a todas las funciones de la tienda.</p>
+                    <button class="hidden" id="login">Iniciar sesión</button>
+                </div>
+                <div class="toggle-panel toggle-right">
+                    <h1>¡Hola!</h1>
+                    <p>Regístrate con tus datos para acceder a todas las funciones de la tienda.</p>
+                    <button class="hidden" id="register">Registrarse</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const registerButton = document.getElementById('register');
+        const loginButton = document.getElementById('login');
+
+        registerButton.addEventListener('click', () => {
+            container.classList.add('active');
+        });
+
+        loginButton.addEventListener('click', () => {
+            container.classList.remove('active');
+        });
+    </script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+        import {
+            createUserWithEmailAndPassword,
+            getAuth,
+            onAuthStateChanged,
+            signInWithEmailAndPassword,
+            updateProfile
+        } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
+
+        const firebaseConfig = {{ firebase_config | tojson }};
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const registerForm = document.querySelector('.sign-up form');
+        const loginForm = document.querySelector('.sign-in form');
+        let submitting = false;
+
+        function showMessage(element, text, isError = true) {
+            element.textContent = text;
+            element.hidden = !text;
+            element.style.color = isError ? '#ffb4b4' : '#c8f7d2';
+        }
+
+        function describeAuthError(error) {
+            const messages = {
+                'auth/email-already-in-use': 'Ese correo ya tiene una cuenta. Inicia sesión.',
+                'auth/invalid-email': 'Escribe un correo electrónico válido.',
+                'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
+                'auth/invalid-credential': 'El correo o la contraseña no son correctos.',
+                'auth/user-not-found': 'El correo o la contraseña no son correctos.',
+                'auth/wrong-password': 'El correo o la contraseña no son correctos.',
+                'auth/too-many-requests': 'Hubo demasiados intentos. Espera un momento y vuelve a probar.',
+                'auth/network-request-failed': 'No se pudo conectar con Firebase. Revisa tu conexión.'
+            };
+            return messages[error.code] || 'No se pudo completar la autenticación. Inténtalo de nuevo.';
+        }
+
+        async function createServerSession(user) {
+            const idToken = await user.getIdToken();
+            const response = await fetch('/session', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${idToken}`,
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: '{}'
+            });
+            if (!response.ok) {
+                throw new Error('No se pudo verificar tu sesión en el servidor. Revisa la configuración e inténtalo de nuevo.');
+            }
+            window.location.replace('/chat');
+        }
+
+        async function handleSubmit(form, messageElement, authenticate) {
+            if (!form.reportValidity()) return;
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitting = true;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Conectando...';
+            showMessage(messageElement, '');
+
+            try {
+                const user = await authenticate();
+                await createServerSession(user);
+            } catch (error) {
+                console.error('Error de autenticación:', error.code || error.message);
+                showMessage(
+                    messageElement,
+                    error.code ? describeAuthError(error) : error.message
+                );
+            } finally {
+                submitting = false;
+                submitButton.disabled = false;
+                submitButton.textContent = originalText;
+            }
+        }
+
+        registerForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const name = registerForm.elements.name.value.trim();
+            const email = registerForm.elements.email.value.trim();
+            const password = registerForm.elements.password.value;
+            handleSubmit(registerForm, document.getElementById('register-message'), async () => {
+                const { user } = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(user, { displayName: name });
+                return user;
+            });
+        });
+
+        loginForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const email = loginForm.elements.email.value.trim();
+            const password = loginForm.elements.password.value;
+            handleSubmit(loginForm, document.getElementById('login-message'), async () => {
+                const { user } = await signInWithEmailAndPassword(auth, email, password);
+                return user;
+            });
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user && !submitting) {
+                createServerSession(user).catch((error) => {
+                    console.error('No se pudo restaurar la sesión:', error.message);
+                    showMessage(document.getElementById('login-message'), error.message);
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>
