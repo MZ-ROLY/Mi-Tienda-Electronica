@@ -1,18 +1,35 @@
+import asyncio
+import logging
 import os
 from multiprocessing import Process
 from pathlib import Path
+from threading import Lock
 import time
 
 from dotenv import load_dotenv
+from google.genai import errors as genai_errors
+from google.genai import types
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    ContextTypes
+    ContextTypes,
+    MessageHandler,
+    filters,
 )
+
+from assistant import (
+    AssistantNotConfiguredError,
+    AssistantResponseError,
+    catalog_product_options,
+    generate_assistant_response,
+    is_catalog_request,
+)
+
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
+logger = logging.getLogger(__name__)
 
 PRODUCTS = {
     "laptop_tuf": {
@@ -37,6 +54,16 @@ PRODUCTS = {
         "audio": "audio/monitor.mp3",
     },
 }
+conversation_history: dict[int, list[types.Content]] = {}
+conversation_locks: dict[int, asyncio.Lock] = {}
+conversation_locks_guard = Lock()
+
+
+def get_conversation_lock(user_id: int) -> asyncio.Lock:
+    with conversation_locks_guard:
+        if user_id not in conversation_locks:
+            conversation_locks[user_id] = asyncio.Lock()
+        return conversation_locks[user_id]
 
 def simulacion_pago():
     print("Iniciando validación bancaria en Valve Store...")
@@ -48,12 +75,13 @@ def simulacion_pago():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "¡Bienvenido a Valve Store!\n\n"
-        "Usa /ayuda para ver todos los comandos o /catalogo para ver los productos."
+        "Puedes preguntarme por nuestros productos o usar /ayuda para ver los comandos."
     )
 
 async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "COMANDOS DE VALVE STORE\n\n"
+        "También puedes escribirme normalmente para consultar el catálogo.\n\n"
         "1. /start - Iniciar el bot\n"
         "2. /ayuda - Lista completa de comandos\n"
         "3. /catalogo - Ver catálogo de productos\n"
@@ -134,8 +162,66 @@ async def enviar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ),
         )
 
+
+async def responder_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
+    user = update.effective_user
+    if message is None or not message.text or user is None:
+        return
+
+    text = message.text.strip()
+    if not text:
+        await message.reply_text("Escribe un mensaje para consultar al asistente.")
+        return
+    if len(text) > 1000:
+        await message.reply_text("El mensaje supera el máximo de 1000 caracteres.")
+        return
+
+    async with get_conversation_lock(user.id):
+        history = conversation_history.get(user.id, [])
+        try:
+            response_text, updated_history = await asyncio.to_thread(
+                generate_assistant_response,
+                text,
+                history,
+            )
+        except AssistantNotConfiguredError:
+            await message.reply_text(
+                "El asistente no está configurado. Inténtalo más tarde."
+            )
+            return
+        except genai_errors.APIError:
+            logger.exception("Gemini no pudo generar una respuesta para Telegram.")
+            await message.reply_text(
+                "El asistente no pudo responder ahora. Inténtalo de nuevo."
+            )
+            return
+        except AssistantResponseError:
+            logger.error("Gemini devolvió una respuesta vacía para Telegram.")
+            await message.reply_text(
+                "El asistente no devolvió una respuesta. Inténtalo de nuevo."
+            )
+            return
+
+        conversation_history[user.id] = updated_history
+
+    if is_catalog_request(text):
+        product_commands = "\n".join(
+            f"- {product['option_label']}: {product['name']} (/{product['id']})"
+            for product in catalog_product_options()
+        )
+        response_text = f"{response_text}\n\n{product_commands}"
+
+    for start_index in range(0, len(response_text), 3500):
+        await message.reply_text(response_text[start_index : start_index + 3500])
+
+
 if __name__ == "__main__":
-    TOKEN = os.environ.get("TELEGRAM")
+    TOKEN = os.environ.get("TELEGRAM", "").strip()
+    if not TOKEN:
+        raise RuntimeError(
+            "Falta la variable TELEGRAM. Configura el token del bot en el entorno."
+        )
 
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
@@ -147,6 +233,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("procesarpago", procesar_pago))
     app.add_handler(CommandHandler("comprobante", enviar_comprobante))
     app.add_handler(CommandHandler("gracias", enviar_audio))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, responder_chat))
 
     print("Conectando con Telegram...", flush=True)
     app.run_polling()

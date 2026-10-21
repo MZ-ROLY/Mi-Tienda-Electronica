@@ -1,11 +1,8 @@
-import json
 import os
-import unicodedata
+from pathlib import Path
 from threading import Lock
 from datetime import timedelta
-from pathlib import Path
 
-from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 from dotenv import load_dotenv
@@ -23,6 +20,16 @@ from flask_socketio import SocketIO, emit, join_room
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import Request
 from google.oauth2.id_token import verify_firebase_token
+
+from assistant import (
+    AssistantNotConfiguredError,
+    AssistantResponseError,
+    catalog_product_options,
+    generate_assistant_response,
+    is_catalog_request,
+    products_mentioned_in_response,
+    store_info,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -65,55 +72,6 @@ if not secret_key:
 
 firebase_config = get_firebase_config()
 project_id = firebase_config["projectId"]
-gemini_api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-gemini_model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip()
-gemini_client = genai.Client(api_key=gemini_api_key) if gemini_api_key else None
-try:
-    store_info = json.loads(
-        (BASE_DIR / "catalogo_tienda.json").read_text(encoding="utf-8")
-    )
-except (OSError, json.JSONDecodeError) as error:
-    raise RuntimeError("No se pudo cargar catalogo_tienda.json.") from error
-if not isinstance(store_info, dict):
-    raise RuntimeError("catalogo_tienda.json debe contener un objeto JSON.")
-
-GEMINI_SYSTEM_INSTRUCTION = (
-    "Eres el asistente de Valve Store. Responde en español, de forma amable y clara. "
-    "Usa solo la información de la tienda incluida al final de estas instrucciones. "
-    "Si el usuario solo saluda, responde únicamente con un saludo amable, sin ofrecer "
-    "catálogos, productos, ayuda adicional ni comandos. No menciones ni uses comandos "
-    "de Telegram en este chat. No inventes "
-    "productos, precios vigentes, existencias, garantías, envíos ni políticas. Los "
-    "precios identificados como demo no son precios confirmados y no debes presentarlos "
-    "como vigentes; si preguntan el precio, indica que deben confirmarlo con la tienda. "
-    "No pidas contraseñas, datos de tarjetas ni otra información de pago.\n\n"
-    "Si la respuesta menciona productos del catálogo, usa sus nombres exactamente "
-    "como aparecen en los datos para que el chat pueda mostrar opciones para abrirlos.\n\n"
-    "Información disponible de Valve Store:\n"
-    + json.dumps(
-        {
-            "store_name": store_info.get("store_name"),
-            "products": [
-                {
-                    key: product[key]
-                    for key in (
-                        "name",
-                        "keywords",
-                        "features",
-                        "demo_price",
-                        "price_status",
-                    )
-                    if key in product
-                }
-                for product in store_info.get("products", [])
-            ],
-            "known_limits": store_info.get("known_limits", []),
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
-)
-MAX_HISTORY_MESSAGES = 10
 
 app = Flask(__name__)
 app.config.update(
@@ -131,6 +89,27 @@ socket_users: dict[str, str] = {}
 conversation_history: dict[str, list[types.Content]] = {}
 conversation_locks: dict[str, Lock] = {}
 conversation_locks_guard = Lock()
+selected_products: dict[str, str] = {}
+
+STORE_COMMANDS = {
+    "/start": "¡Bienvenido a Valve Store! Puedes consultar productos o usar /ayuda para ver los comandos.",
+    "/ayuda": (
+        "COMANDOS DE VALVE STORE\n\n"
+        "/start - Iniciar el asistente\n"
+        "/ayuda - Ver los comandos disponibles\n"
+        "/catalogo - Explorar los productos\n"
+        "/laptop_tuf, /teclado_streamer, /monitor_rog - Ver detalles de un producto\n"
+        "/comprar - Ver el flujo de compra de demostración\n"
+        "/procesarpago - Ejecutar la simulación de pago\n"
+        "/comprobante - Descargar la factura PDF de demostración\n"
+        "/gracias - Escuchar el audio del producto seleccionado"
+    ),
+    "/comprar": (
+        "CONFIRMACIÓN DE COMPRA\n\n"
+        "Esta tienda solo ofrece una simulación y no procesa pagos reales.\n"
+        "Para iniciar la simulación ejecuta /procesarpago."
+    ),
+}
 
 
 def get_conversation_lock(user_id: str) -> Lock:
@@ -151,59 +130,6 @@ def get_authenticated_socket_user() -> str | None:
     return user_id
 
 
-def normalize_text(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value.casefold())
-    normalized = "".join(
-        char if char.isalnum() or char.isspace() else " "
-        for char in normalized
-        if not unicodedata.combining(char)
-    )
-    return " ".join(normalized.split())
-
-
-def is_catalog_request(text: str) -> bool:
-    normalized_text = normalize_text(text)
-    catalog_phrases = (
-        "catalogo",
-        "catalogos",
-        "que productos",
-        "cuales productos",
-        "tienen productos",
-        "hay productos",
-        "mostrar productos",
-        "muestrame productos",
-        "lista de productos",
-        "que venden",
-    )
-    return any(phrase in normalized_text for phrase in catalog_phrases)
-
-
-def catalog_product_options() -> list[dict[str, str]]:
-    return [
-        {
-            "id": product["id"],
-            "name": product["name"],
-            "option_label": product.get("option_label", product["name"]),
-        }
-        for product in store_info.get("products", [])
-    ]
-
-
-def products_mentioned_in_response(response_text: str) -> list[dict[str, str]]:
-    normalized_response = normalize_text(response_text)
-    product_is_mentioned = False
-    for product in store_info.get("products", []):
-        keywords = product.get("keywords", [])
-        if any(
-            normalize_text(keyword) in normalized_response
-            for keyword in keywords
-            if isinstance(keyword, str)
-        ):
-            product_is_mentioned = True
-            break
-    return catalog_product_options() if product_is_mentioned else []
-
-
 def process_chat_message(
     user_id: str,
     text: str,
@@ -211,56 +137,21 @@ def process_chat_message(
     room = f"user:{user_id}"
     emit("chat_message_received", {"text": text}, room=room)
 
-    if is_catalog_request(text):
-        user_message = types.Content(
-            role="user",
-            parts=[types.Part.from_text(text=text)],
-        )
-        with get_conversation_lock(user_id):
-            history = conversation_history.get(user_id, [])
-            greeting = "¡Hola!" if not history else "¡Sí!"
-            response_text = (
-                f"{greeting} \U0001f44b Elige un catálogo para explorar nuestros productos."
-            )
-            assistant_message = types.Content(
-                role="model",
-                parts=[types.Part.from_text(text=response_text)],
-            )
-            conversation_history[user_id] = [
-                *history,
-                user_message,
-                assistant_message,
-            ][-MAX_HISTORY_MESSAGES:]
-            emit(
-                "chat_response",
-                {"text": response_text, "products": catalog_product_options()},
-                room=room,
-            )
-        return
-
-    if gemini_client is None:
-        app.logger.error("GEMINI_API_KEY no está configurada; no se puede responder.")
-        emit(
-            "chat_error",
-            {"message": "El asistente no está configurado. Inténtalo más tarde."},
-            room=room,
-        )
-        return
-
-    user_message = types.Content(
-        role="user",
-        parts=[types.Part.from_text(text=text)],
-    )
     with get_conversation_lock(user_id):
         history = conversation_history.get(user_id, [])
         try:
-            response = gemini_client.models.generate_content(
-                model=gemini_model,
-                contents=[*history, user_message],
-                config=types.GenerateContentConfig(
-                    system_instruction=GEMINI_SYSTEM_INSTRUCTION,
-                ),
+            response_text, updated_history = generate_assistant_response(
+                text,
+                history,
             )
+        except AssistantNotConfiguredError:
+            app.logger.error("GEMINI_API_KEY no está configurada; no se puede responder.")
+            emit(
+                "chat_error",
+                {"message": "El asistente no está configurado. Inténtalo más tarde."},
+                room=room,
+            )
+            return
         except genai_errors.APIError:
             app.logger.exception("Gemini no pudo generar una respuesta.")
             emit(
@@ -269,9 +160,7 @@ def process_chat_message(
                 room=room,
             )
             return
-
-        response_text = response.text
-        if not response_text or not response_text.strip():
+        except AssistantResponseError:
             app.logger.error("Gemini devolvió una respuesta vacía.")
             emit(
                 "chat_error",
@@ -280,24 +169,177 @@ def process_chat_message(
             )
             return
 
-        response_text = response_text.strip()
-        assistant_message = types.Content(
-            role="model",
-            parts=[types.Part.from_text(text=response_text)],
-        )
-        conversation_history[user_id] = [
-            *history,
-            user_message,
-            assistant_message,
-        ][-MAX_HISTORY_MESSAGES:]
+        conversation_history[user_id] = updated_history
         emit(
             "chat_response",
             {
                 "text": response_text,
-                "products": products_mentioned_in_response(response_text),
+                "products": (
+                    catalog_product_options()
+                    if is_catalog_request(text)
+                    else products_mentioned_in_response(response_text)
+                ),
             },
             room=room,
         )
+
+
+def product_details_payload(user_id: str, product: dict[str, object]) -> dict[str, object]:
+    image = product.get("image")
+    audio = product.get("audio")
+    selected_products[user_id] = str(product["id"])
+    return {
+        "id": product["id"],
+        "name": product["name"],
+        "option_label": product.get("option_label", product["name"]),
+        "image": url_for(
+            "image_asset",
+            filename=image.split("/", 1)[1],
+        )
+        if isinstance(image, str) and "/" in image
+        else "",
+        "features": product.get("features", []),
+        "demo_price": product.get("demo_price"),
+        "price_status": product.get("price_status"),
+        "audio": url_for("audio_asset", filename=Path(audio).name)
+        if isinstance(audio, str)
+        else "",
+    }
+
+
+def send_store_command(user_id: str, command: str) -> None:
+    room = f"user:{user_id}"
+    emit("chat_message_received", {"text": command}, room=room)
+
+    product = next(
+        (
+            product
+            for product in store_info.get("products", [])
+            if isinstance(product, dict)
+            and product.get("telegram_command") == command
+        ),
+        None,
+    )
+    if product is not None:
+        emit(
+            "product_selected",
+            product_details_payload(user_id, product),
+            room=room,
+        )
+        return
+
+
+    if command == "/catalogo":
+        emit(
+            "chat_response",
+            {
+                "text": "CATÁLOGO VALVE STORE\n\nElige un producto para ver sus detalles.",
+                "products": catalog_product_options(),
+            },
+            room=room,
+        )
+        return
+
+    if command in {"/start", "/ayuda", "/comprar"}:
+        response = {"text": STORE_COMMANDS[command]}
+        if command == "/comprar":
+            response["actions"] = [
+                {"label": "Simular pago", "command": "/procesarpago"},
+                {
+                    "label": "Comprobante de demostración",
+                    "command": "/comprobante",
+                },
+            ]
+        emit("chat_response", response, room=room)
+        return
+
+    if command == "/procesarpago":
+        emit(
+            "chat_response",
+            {
+                "text": (
+                    "Se inició la simulación de pago. No se realizó ningún cobro "
+                    "ni se confirmó una compra."
+                )
+            },
+            room=room,
+        )
+        socketio.start_background_task(simulate_payment, user_id)
+        return
+
+    if command == "/comprobante":
+        emit(
+            "chat_response",
+            {
+                "text": (
+                    "Documento PDF de demostración; no acredita un pago real."
+                ),
+                "attachment": {
+                    "url": url_for("download_invoice"),
+                    "label": "Descargar comprobante de demostración (PDF)",
+                },
+            },
+            room=room,
+        )
+        return
+
+    if command == "/gracias":
+        product_id = selected_products.get(user_id, "laptop_tuf")
+        selected_product = next(
+            (
+                product
+                for product in store_info.get("products", [])
+                if isinstance(product, dict) and product.get("id") == product_id
+            ),
+            None,
+        )
+        audio = selected_product.get("audio") if selected_product else None
+        if not isinstance(audio, str):
+            app.logger.error("No hay un audio configurado para el producto %s.", product_id)
+            emit(
+                "chat_error",
+                {"message": "No se encontró el audio de este producto."},
+                room=room,
+            )
+            return
+
+        emit(
+            "chat_response",
+            {
+                "text": (
+                    "¡Gracias por visitar Valve Store! Aquí tienes información "
+                    f"sobre {selected_product['name']}."
+                ),
+                "audio": {
+                    "url": url_for("audio_asset", filename=Path(audio).name),
+                    "label": f"Audio de {selected_product['name']}",
+                },
+            },
+            room=room,
+        )
+        return
+
+    emit(
+        "chat_error",
+        {"message": "No reconozco ese comando. Escribe /ayuda para ver las opciones."},
+        room=room,
+    )
+
+
+def simulate_payment(user_id: str) -> None:
+    room = f"user:{user_id}"
+    for attempt in range(1, 5):
+        socketio.sleep(1)
+        socketio.emit(
+            "chat_response",
+            {"text": f"Simulación de pago... {attempt}/4"},
+            to=room,
+        )
+    socketio.emit(
+        "chat_response",
+        {"text": "Simulación finalizada. No se realizó ningún cobro."},
+        to=room,
+    )
 
 
 def render_page(filename: str) -> str:
@@ -354,6 +396,7 @@ def logout():
     user_id = session.get("firebase_uid")
     if isinstance(user_id, str):
         conversation_history.pop(user_id, None)
+        selected_products.pop(user_id, None)
         for sid, connected_user_id in tuple(socket_users.items()):
             if connected_user_id == user_id:
                 socket_users.pop(sid, None)
@@ -398,7 +441,26 @@ def receive_chat_message(payload: object) -> None:
         emit("chat_error", {"message": "El mensaje supera el máximo de 1000 caracteres."}, to=request.sid)
         return
 
+    if text.startswith("/"):
+        command = text.split(maxsplit=1)[0].split("@", maxsplit=1)[0].lower()
+        send_store_command(user_id, command)
+        return
+
     process_chat_message(user_id, text)
+
+
+@socketio.on("store_command")
+def receive_store_command(payload: object) -> None:
+    user_id = get_authenticated_socket_user()
+    if user_id is None:
+        return
+
+    command = payload.get("command") if isinstance(payload, dict) else None
+    if not isinstance(command, str) or len(command) > 40:
+        emit("chat_error", {"message": "El comando no es válido."}, to=request.sid)
+        return
+
+    send_store_command(user_id, command.lower())
 
 
 @socketio.on("product_details")
@@ -424,25 +486,36 @@ def request_product_details(payload: object) -> None:
         )
         return
 
-    image = product.get("image")
     emit(
         "product_selected",
-        {
-            "id": product["id"],
-            "name": product["name"],
-            "option_label": product.get("option_label", product["name"]),
-            "image": url_for(
-                "image_asset",
-                filename=image.split("/", 1)[1],
-            )
-            if isinstance(image, str) and "/" in image
-            else "",
-            "features": product.get("features", []),
-            "demo_price": product.get("demo_price"),
-            "price_status": product.get("price_status"),
-        },
+        product_details_payload(user_id, product),
         room=f"user:{user_id}",
     )
+
+@app.get("/comprobante")
+def download_invoice():
+    if not session.get("firebase_uid"):
+        return redirect(url_for("login_page"))
+    return send_from_directory(
+        BASE_DIR / "pdfs",
+        "factura.pdf",
+        as_attachment=True,
+        download_name="factura.pdf",
+    )
+
+
+@app.get("/audio/<path:filename>")
+def audio_asset(filename: str):
+    if not session.get("firebase_uid"):
+        return redirect(url_for("login_page"))
+    allowed_audio = {
+        Path(product["audio"]).name
+        for product in store_info.get("products", [])
+        if isinstance(product, dict) and isinstance(product.get("audio"), str)
+    }
+    if filename not in allowed_audio:
+        return jsonify(error="No se encontró el audio solicitado."), 404
+    return send_from_directory(BASE_DIR / "audio", filename)
 
 
 @app.get("/image/<path:filename>")

@@ -13,12 +13,15 @@ FUNCIONES PRINCIPALES
 - Verificacion de la sesion del usuario en el servidor Flask.
 - Chat web en tiempo real mediante Flask-SocketIO.
 - Asistente de texto conectado con Gemini, cuando GEMINI_API_KEY esta
-  configurada.
+  configurada, compartido por el chat web y el bot de Telegram.
 - Respuestas locales para consultas del catalogo y botones para ver detalles
   de laptops, teclados y monitores.
+- Comandos en el chat web para ayuda, catalogo, productos, compra simulada,
+  comprobante PDF de demostracion y reproduccion de audio.
 - Tema claro/oscuro en la pagina del chat.
 - Bot de Telegram con comandos de ayuda, catalogo, productos, comprobante PDF
-  de demostracion y audio.
+  de demostracion y audio, ademas de consultas de texto con el mismo asistente
+  Gemini del chat web.
 
 TECNOLOGIAS
 -----------
@@ -32,7 +35,9 @@ TECNOLOGIAS
 ARCHIVOS Y CARPETAS PRINCIPALES
 -------------------------------
 - app.py: servidor Flask, autenticacion, chat, catalogo y endpoints.
+- chat.html: interfaz del chat, comandos y controles de productos, PDF y audio.
 - Telegram.py: bot de Telegram y sus comandos.
+- assistant.py: logica compartida del asistente Gemini y el catalogo.
 - login.html: interfaz de registro e inicio de sesion.
 - chat.html: interfaz del chat y detalles de productos.
 - catalogo_tienda.json: datos de productos y comandos del bot.
@@ -94,3 +99,18 @@ es:
 
 Las variables privadas deben configurarse en el panel del servicio y no
 subirse al repositorio.
+
+Para mantener el bot de Telegram activo en Render, crea un servicio separado
+del tipo Background Worker usando el mismo repositorio y rama. Configura estos
+comandos:
+
+   Build Command: pip install -r requirements.txt
+   Start Command: python Telegram.py
+
+En las variables de entorno privadas del worker, agrega TELEGRAM con el token
+del bot obtenido de BotFather y GEMINI_API_KEY con la misma clave configurada
+para la web para habilitar las respuestas conversacionales. Si la web define
+GEMINI_MODEL, configura tambien ese valor en el worker. No configures el bot
+como parte del comando de inicio de la web: el worker debe ejecutarse como
+servicio independiente. El plan de Render elegido debe permitir Background
+Workers.
