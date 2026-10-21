@@ -56,11 +56,9 @@
     .product-detail-info h3{margin:0 0 12px;font-size:16px;line-height:1.45}
     .product-detail-info ul{margin:0;padding-left:20px;color:var(--text);font-size:13px;line-height:1.8}
     .product-detail-price{margin:14px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
-    .store-actions,.message-actions{display:flex;flex-wrap:wrap;gap:8px}
-    .store-actions{padding:0 clamp(14px,4vw,36px) 10px}
-    .message-actions{margin-top:12px}
-    .store-action,.message-action,.download-link{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel-raised);color:var(--text);font:inherit;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer}
-    .store-action:hover,.message-action:hover,.download-link:hover{border-color:#888}
+    .message-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .message-action,.download-link{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel-raised);color:var(--text);font:inherit;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer}
+    .message-action:hover,.download-link:hover{border-color:#888}
     .assistant-audio{display:block;width:min(100%,420px);margin-top:12px}
     .connection-status{margin:4px 0 0;color:var(--muted);font-size:11px}
     .connection-status[data-state="connected"]{color:#70d99a}
@@ -93,7 +91,7 @@
     html[data-theme="light"] .composer textarea{color:#111827}
     html[data-theme="light"] .composer textarea::placeholder{color:#4b5563;opacity:1}
     html[data-theme="light"] .send{border-color:#25292e;background:#25292e;color:#fff;box-shadow:0 0 14px #00000018}
-    @media(max-width:600px){.chat-page{min-height:100vh;min-height:100dvh;padding:0}.chat-window{height:100vh;height:100dvh;min-height:0;border:0;border-radius:0}.chat-header{gap:9px;padding:13px 12px}.user-profile{gap:8px}.user-photo{width:40px;height:40px}.user-name{font-size:12px}.user-email{font-size:10px}.header-actions{gap:6px}.theme-toggle{width:36px;height:36px}.logout{gap:5px;padding:9px 10px;font-size:11px}.messages{gap:18px;padding:22px 14px}.empty-state{min-height:260px}.robot{width:160px;height:160px}.robot svg{transform:translateX(18px) scale(.85)!important}.message{max-width:92%}.bubble{padding:11px 14px;font-size:13px}.store-actions{gap:6px;padding:0 12px 9px}.store-action,.message-action,.download-link{padding:7px 9px;font-size:11px}.composer-wrap{padding:12px 12px max(12px,env(safe-area-inset-bottom))}.composer{gap:8px;padding-left:12px}}
+    @media(max-width:600px){.chat-page{min-height:100vh;min-height:100dvh;padding:0}.chat-window{height:100vh;height:100dvh;min-height:0;border:0;border-radius:0}.chat-header{gap:9px;padding:13px 12px}.user-profile{gap:8px}.user-photo{width:40px;height:40px}.user-name{font-size:12px}.user-email{font-size:10px}.header-actions{gap:6px}.theme-toggle{width:36px;height:36px}.logout{gap:5px;padding:9px 10px;font-size:11px}.messages{gap:18px;padding:22px 14px}.empty-state{min-height:260px}.robot{width:160px;height:160px}.robot svg{transform:translateX(18px) scale(.85)!important}.message{max-width:92%}.bubble{padding:11px 14px;font-size:13px}.message-action,.download-link{padding:7px 9px;font-size:11px}.composer-wrap{padding:12px 12px max(12px,env(safe-area-inset-bottom))}.composer{gap:8px;padding-left:12px}}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 </head>
@@ -130,11 +128,6 @@
       </div>
 
       <div class="composer-wrap">
-        <div class="store-actions" aria-label="Acciones de la tienda">
-          <button class="store-action" type="button" data-store-command="/catalogo">Catálogo</button>
-          <button class="store-action" type="button" data-store-command="/ayuda">Ayuda</button>
-          <button class="store-action" type="button" data-store-command="/comprobante">Comprobante demo</button>
-        </div>
         <form class="composer" id="chat-form">
           <textarea id="message-input" rows="1" maxlength="1000" placeholder="Escribe tu mensaje..." aria-label="Escribe tu mensaje" required></textarea>
           <button class="send" type="submit" aria-label="Enviar mensaje" disabled>
@@ -194,12 +187,6 @@
         socket.emit('store_command', { command });
       }
     }
-
-    document.querySelectorAll('[data-store-command]').forEach((button) => {
-      button.addEventListener('click', () => {
-        sendStoreCommand(button.dataset.storeCommand);
-      });
-    });
 
     function addMessage(text, sender = 'user', products = [], extras = {}) {
       const message = document.createElement('article');
