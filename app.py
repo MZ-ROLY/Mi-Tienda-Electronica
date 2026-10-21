@@ -91,19 +91,35 @@ conversation_locks: dict[str, Lock] = {}
 conversation_locks_guard = Lock()
 selected_products: dict[str, str] = {}
 
-STORE_COMMANDS = {
-    "/start": "¡Bienvenido a Valve Store! Puedes consultar productos o usar /ayuda para ver los comandos.",
-    "/ayuda": (
+STORE_HELP_TEXT = (
         "COMANDOS DE VALVE STORE\n\n"
-        "/start - Iniciar el asistente\n"
-        "/ayuda - Ver los comandos disponibles\n"
-        "/catalogo - Explorar los productos\n"
-        "/laptop_tuf, /teclado_streamer, /monitor_rog - Ver detalles de un producto\n"
-        "/comprar - Ver el flujo de compra de demostración\n"
-        "/procesarpago - Ejecutar la simulación de pago\n"
-        "/comprobante - Descargar la factura PDF de demostración\n"
-        "/gracias - Escuchar el audio del producto seleccionado"
-    ),
+        "1. /start - Iniciar el asistente y mostrar este menú\n"
+        "2. /ayuda - Ver la lista completa de comandos\n"
+        "3. /catalogo - Explorar el catálogo de productos\n"
+        "4. /laptop_tuf - Ver detalles de la laptop TUF\n"
+        "5. /teclado_streamer - Ver detalles del teclado RGB\n"
+        "6. /monitor_rog - Ver detalles del monitor ASUS ROG\n"
+        "7. /comprar - Ver la confirmación de compra de demostración\n"
+        "8. /procesarpago - Ejecutar la simulación de pago (sin cobro real)\n"
+        "9. /comprobante - Descargar la factura PDF de demostración\n"
+        "10. /gracias - Escuchar el audio del producto seleccionado\n\n"
+        "También puedes escribir una pregunta normal para consultar al asistente."
+)
+
+STORE_COMMAND_ACTIONS = [
+    {"label": "Catálogo", "command": "/catalogo"},
+    {"label": "Laptop TUF", "command": "/laptop_tuf"},
+    {"label": "Teclado RGB", "command": "/teclado_streamer"},
+    {"label": "Monitor ROG", "command": "/monitor_rog"},
+    {"label": "Comprar", "command": "/comprar"},
+    {"label": "Simular pago", "command": "/procesarpago"},
+    {"label": "Comprobante demo", "command": "/comprobante"},
+    {"label": "Escuchar audio", "command": "/gracias"},
+]
+
+STORE_COMMANDS = {
+    "/start": f"¡Bienvenido a Valve Store!\n\n{STORE_HELP_TEXT}",
+    "/ayuda": STORE_HELP_TEXT,
     "/comprar": (
         "CONFIRMACIÓN DE COMPRA\n\n"
         "Esta tienda solo ofrece una simulación y no procesa pagos reales.\n"
@@ -228,7 +244,6 @@ def send_store_command(user_id: str, command: str) -> None:
         )
         return
 
-
     if command == "/catalogo":
         emit(
             "chat_response",
@@ -242,6 +257,8 @@ def send_store_command(user_id: str, command: str) -> None:
 
     if command in {"/start", "/ayuda", "/comprar"}:
         response = {"text": STORE_COMMANDS[command]}
+        if command in {"/start", "/ayuda"}:
+            response["actions"] = STORE_COMMAND_ACTIONS
         if command == "/comprar":
             response["actions"] = [
                 {"label": "Simular pago", "command": "/procesarpago"},
